@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWS Core Demo</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #16191f; --muted: #5f6b7a; --line: #dfe3e8;
+    --accent: #ff9900; --ok: #1d8102; --bad: #d13212; --chip: #eef1f4; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1419; --card: #1a2029; --ink: #e8ebef; --muted: #98a3b1; --line: #2c3440; --chip: #242c37; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 20px 16px; border-bottom: 4px solid var(--inst, var(--accent)); background: var(--card); }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 13px; }
+  .inst { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip { background: var(--chip); border-radius: 6px; padding: 3px 8px; font-family: var(--mono); font-size: 12px; }
+  .chip b { font-family: system-ui, sans-serif; font-weight: 600; color: var(--muted); margin-right: 4px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  main { padding: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .card.wide { grid-column: 1 / -1; }
+  .card h2 { margin: 0; font-size: 15px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card p.hint { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+  .badge.ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .badge.bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=text], input[type=number] { flex: 1; min-width: 120px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; }
+  button { padding: 7px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--chip); color: var(--ink); font: inherit; font-weight: 500; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #16191f; }
+  button:disabled { opacity: .5; cursor: wait; }
+  .out { font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+  .out:empty { display: none; }
+  .err { color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-word; }
+  th { color: var(--muted); font-weight: 600; }
+  td.mono { font-family: var(--mono); font-size: 11.5px; }
+  .x { background: none; border: none; color: var(--bad); padding: 0 4px; cursor: pointer; }
+  .bars { display: flex; flex-direction: column; gap: 6px; }
+  .bar { display: grid; grid-template-columns: minmax(0, 220px) 1fr 44px; gap: 8px; align-items: center; font-size: 12px; }
+  .bar .lbl { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar .track { background: var(--chip); border-radius: 4px; height: 18px; overflow: hidden; }
+  .bar .fill { height: 100%; border-radius: 4px; transition: width .3s; }
+  .ticks { display: flex; flex-wrap: wrap; gap: 3px; }
+  .tick { width: 14px; height: 14px; border-radius: 3px; }
+  a { color: var(--accent); }
+  @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } .bar { grid-template-columns: 90px 1fr 36px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1><span>AWS</span> Core Services Demo</h1>
+    <div class="sub">Bu sayfayı sunan EC2 instance'ı (üstteki renk şeridi instance'a özeldir — ALB arkasında yenileyince değişir)</div>
+    <div class="inst" id="inst"><span class="chip">yükleniyor…</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+<div class="grid">
+
+  <!-- ALB -->
+  <section class="card wide">
+    <h2>Elastic Load Balancing (ALB) — dağılım testi <span class="badge" id="b-alb">—</span></h2>
+    <p class="hint">N adet istek atar ve hangi instance/AZ'nin cevap verdiğini gösterir. Target group'ta stickiness kapalı olmalı. "Bu instance'ı unhealthy yap" ile /health 503 döner; ALB birkaç health check sonra trafiği diğer hedeflere kaydırır.</p>
+    <div class="row">
+      <input type="number" id="alb-n" value="30" min="1" max="200" style="max-width:100px">
+      <button class="primary" onclick="albTest()">İstek gönder</button>
+      <button onclick="toggleHealth()">Bu instance'ı unhealthy/healthy yap</button>
+    </div>
+    <div class="ticks" id="alb-ticks"></div>
+    <div class="bars" id="alb-bars"></div>
+  </section>
+
+  <!-- RDS -->
+  <section class="card" data-svc="rds">
+    <h2>Amazon RDS <span class="badge" id="b-rds">—</span></h2>
+    <p class="hint">Bağlanır, sürümü okur, <code>demo_notes</code> tablosunu oluşturur. Her kayıtta hangi instance'ın yazdığı tutulur.</p>
+    <div class="row">
+      <input type="text" id="rds-note" placeholder="Not metni (boşsa otomatik)">
+      <button class="primary" onclick="rdsAdd()">Ekle</button>
+      <button onclick="rdsStatus()">Yenile</button>
+    </div>
+    <pre class="out" id="rds-info"></pre>
+    <div id="rds-rows"></div>
+  </section>
+
+  <!-- S3 -->
+  <section class="card" data-svc="s3">
+    <h2>Amazon S3 <span class="badge" id="b-s3">—</span></h2>
+    <p class="hint">Dosya yükle (veya boş bırakıp test notu yaz). Linkler 5 dk geçerli presigned URL.</p>
+    <div class="row">
+      <input type="file" id="s3-file" style="flex:1;min-width:0">
+      <button class="primary" onclick="s3Upload()">Yükle</button>
+      <button onclick="s3List()">Listele</button>
+    </div>
+    <div id="s3-list"></div>
+  </section>
+
+  <!-- DynamoDB -->
+  <section class="card" data-svc="dynamodb">
+    <h2>Amazon DynamoDB <span class="badge" id="b-dynamodb">—</span></h2>
+    <p class="hint">PutItem + Scan. Tablo partition key'i <code>DDB_PK</code> (varsayılan <code>pk</code>, String).</p>
+    <div class="row">
+      <input type="text" id="ddb-text" placeholder="Metin">
+      <button class="primary" onclick="ddb(true)">Put</button>
+      <button onclick="ddb(false)">Scan</button>
+    </div>
+    <div id="ddb-list"></div>
+  </section>
+
+  <!-- ElastiCache -->
+  <section class="card" data-svc="redis">
+    <h2>ElastiCache (Redis/Valkey) <span class="badge" id="b-redis">—</span></h2>
+    <p class="hint">Paylaşılan sayaç — farklı instance'lardan artırınca aynı değeri görürsün (session/cache paylaşımı).</p>
+    <div class="row">
+      <button class="primary" onclick="redis(true)">INCR</button>
+      <button onclick="redis(false)">Oku</button>
+    </div>
+    <pre class="out" id="redis-out"></pre>
+  </section>
+
+  <!-- SQS -->
+  <section class="card" data-svc="sqs">
+    <h2>Amazon SQS <span class="badge" id="b-sqs">—</span></h2>
+    <p class="hint">Mesaj gönder, sonra al (alınan mesajlar kuyruktan silinir).</p>
+    <div class="row">
+      <input type="text" id="sqs-body" placeholder="Mesaj">
+      <button class="primary" onclick="sqsSend()">Gönder</button>
+      <button onclick="sqsReceive()">Al</button>
+    </div>
+    <pre class="out" id="sqs-out"></pre>
+  </section>
+
+  <!-- SNS -->
+  <section class="card" data-svc="sns">
+    <h2>Amazon SNS <span class="badge" id="b-sns">—</span></h2>
+    <p class="hint">Topic'e publish eder. E-posta aboneliği ekleyip onayladıysan mail gelir; SQS aboneliği varsa mesaj kuyruğa da düşer (fan-out).</p>
+    <div class="row">
+      <input type="text" id="sns-msg" placeholder="Bildirim metni">
+      <button class="primary" onclick="snsPublish()">Publish</button>
+    </div>
+    <pre class="out" id="sns-out"></pre>
+  </section>
+
+  <!-- EFS -->
+  <section class="card" data-svc="efs">
+    <h2>Amazon EFS <span class="badge" id="b-efs">—</span></h2>
+    <p class="hint">Ortak dosya sistemine satır ekler. Tüm instance'lar aynı dosyayı görür (farklı AZ'ler dahil).</p>
+    <div class="row">
+      <button class="primary" onclick="efs(true)">Satır yaz</button>
+      <button onclick="efs(false)">Oku</button>
+    </div>
+    <pre class="out" id="efs-out"></pre>
+  </section>
+
+  <!-- Secrets -->
+  <section class="card" data-svc="secrets">
+    <h2>Secrets Manager / SSM Parameter Store <span class="badge" id="b-secrets">—</span></h2>
+    <p class="hint">IAM rolüyle secret/parametre okur; değer maskelenir. Kodda hiç kimlik bilgisi yok — instance profile kullanılır.</p>
+    <div class="row"><button class="primary" onclick="secretsRead()">Oku</button></div>
+    <pre class="out" id="secrets-out"></pre>
+  </section>
+
+  <!-- CloudWatch + ASG -->
+  <section class="card" data-svc="cloudwatch">
+    <h2>CloudWatch + Auto Scaling <span class="badge" id="b-cloudwatch">—</span></h2>
+    <p class="hint">Özel metrik gönder (<code>CoreDemo/DemoClicks</code>) veya CPU yükü üret: ASG'de CPU %50 target tracking varsa birkaç dakika içinde yeni instance açılır.</p>
+    <div class="row">
+      <button onclick="cwMetric()">Metrik gönder</button>
+      <input type="number" id="stress-s" value="300" min="10" max="900" style="max-width:90px">
+      <button class="primary" onclick="stressCpu()">CPU yükü (sn)</button>
+    </div>
+    <pre class="out" id="cw-out"></pre>
+  </section>
+
+</div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const color = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 70% 50%)`; };
+
+async function api(path, opts = {}) {
+  const init = { method: opts.method || "GET", headers: {} };
+  if (opts.json !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(opts.json); }
+  if (opts.form) init.body = opts.form;
+  const sep = path.includes("?") ? "&" : "?";
+  const r = await fetch(path + sep + "_=" + Date.now() + Math.random(), init);
+  try { return await r.json(); } catch { return { ok: false, error: `HTTP ${r.status}` }; }
+}
+
+function badge(svc, state, text) {
+  const b = $("b-" + svc); if (!b) return;
+  b.className = "badge" + (state === true ? " ok" : state === false ? " bad" : "");
+  b.textContent = text;
+}
+function show(id, res, fmt) {
+  const el = $(id);
+  if (!res.ok) { el.innerHTML = `<span class="err">${esc(res.error)}</span>`; return false; }
+  el.textContent = fmt ? fmt(res) : JSON.stringify(res, null, 2);
+  return true;
+}
+
+// ---- Instance + config
+let CONF = {};
+async function whoami() {
+  const r = await api("/api/whoami");
+  if (!r.ok) return;
+  document.documentElement.style.setProperty("--inst", color(r.instance_id));
+  const chips = [
+    ["Instance", `<span class="dot" style="background:${color(r.instance_id)}"></span>${esc(r.instance_id)}`],
+    ["AZ", esc(r.az)], ["Tip", esc(r.instance_type)], ["Private IP", esc(r.private_ip)],
+    ["Public IP", esc(r.public_ip || "yok")], ["AMI", esc(r.ami_id)],
+    ["Erişim", r.via_alb ? "ALB üzerinden" : "doğrudan"], ["Health", r.healthy ? "healthy" : "UNHEALTHY"],
+  ];
+  $("inst").innerHTML = chips.map(([k, v]) => `<span class="chip"><b>${k}</b>${v}</span>`).join("");
+  badge("alb", r.via_alb ? true : null, r.via_alb ? "ALB arkasında" : "doğrudan erişim");
+  CONF = r.configured;
+  for (const [svc, on] of Object.entries(CONF)) {
+    if (!on) {
+      badge(svc, null, "yapılandırılmadı");
+      document.querySelectorAll(`[data-svc="${svc}"] button`).forEach((b) => (b.disabled = true));
+    }
+  }
+}
+
+// ---- ALB
+async function albTest() {
+  const n = Math.max(1, Math.min(200, +$("alb-n").value || 30));
+  const counts = {}; $("alb-ticks").innerHTML = ""; $("alb-bars").innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    const r = await api("/api/whoami");
+    const key = r.ok ? `${r.instance_id} · ${r.az}` : "hata";
+    counts[key] = (counts[key] || 0) + 1;
+    $("alb-ticks").insertAdjacentHTML("beforeend", `<span class="tick" title="${esc(key)}" style="background:${r.ok ? color(r.instance_id) : "var(--bad)"}"></span>`);
+    $("alb-bars").innerHTML = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, c]) =>
+      `<div class="bar"><span class="lbl" title="${esc(k)}">${esc(k)}</span><div class="track"><div class="fill" style="width:${(c / (i + 1)) * 100}%;background:${k === "hata" ? "var(--bad)" : color(k.split(" · ")[0])}"></div></div><span>${c}</span></div>`).join("");
+  }
+}
+async function toggleHealth() {
+  const r = await api("/api/health-toggle", { method: "POST", json: {} });
+  alertBox(r.ok ? `${r.instance_id} artık ${r.healthy ? "HEALTHY" : "UNHEALTHY (/health → 503)"}` : r.error);
+  whoami();
+}
+function alertBox(msg) { $("alb-bars").innerHTML = `<div class="chip">${esc(msg)}</div>`; }
+
+// ---- RDS
+function rdsRender(rows) {
+  $("rds-rows").innerHTML = rows.length ? `<table><tr><th>#</th><th>Not</th><th>Instance</th><th></th></tr>${rows.map((r) =>
+    `<tr><td>${r.id}</td><td>${esc(r.note)}<div class="sub">${esc(r.created_at)}</div></td><td class="mono"><span class="dot" style="background:${color(r.instance_id)}"></span>${esc(r.instance_id)}</td><td><button class="x" onclick="rdsDel(${r.id})">✕</button></td></tr>`).join("")}</table>` : `<p class="hint">Henüz kayıt yok.</p>`;
+}
+async function rdsStatus() {
+  const r = await api("/api/rds/status");
+  badge("rds", r.ok, r.ok ? `bağlı · ${r.latency_ms} ms` : "hata");
+  if (show("rds-info", r, (x) => `${x.engine} @ ${x.host}\n→ ${x.resolved_ip}\n${x.version}`)) rdsRender(r.rows);
+}
+async function rdsAdd() {
+  const r = await api("/api/rds/notes", { method: "POST", json: { note: $("rds-note").value } });
+  if (r.ok) { $("rds-note").value = ""; rdsRender(r.rows); } else show("rds-info", r);
+}
+async function rdsDel(id) { const r = await api(`/api/rds/notes/${id}`, { method: "DELETE" }); if (r.ok) rdsRender(r.rows); else show("rds-info", r); }
+
+// ---- S3
+function s3Render(r) {
+  badge("s3", r.ok, r.ok ? r.bucket : "hata");
+  if (!r.ok) { $("s3-list").innerHTML = `<pre class="out err">${esc(r.error)}</pre>`; return; }
+  $("s3-list").innerHTML = r.objects.length ? `<table><tr><th>Key</th><th>Boyut</th><th></th></tr>${r.objects.map((o) =>
+    `<tr><td class="mono"><a href="${esc(o.url)}" target="_blank" rel="noopener">${esc(o.key)}</a></td><td>${o.size} B</td><td><button class="x" onclick='s3Del(${JSON.stringify(o.key)})'>✕</button></td></tr>`).join("")}</table>` : `<p class="hint">Obje yok.</p>`;
+}
+async function s3List() { s3Render(await api("/api/s3")); }
+async function s3Upload() {
+  const fd = new FormData(); const f = $("s3-file").files[0]; if (f) fd.append("file", f);
+  s3Render(await api("/api/s3", { method: "POST", form: fd })); $("s3-file").value = "";
+}
+async function s3Del(key) { s3Render(await api("/api/s3/delete", { method: "POST", json: { key } })); }
+
+// ---- DynamoDB
+async function ddb(put) {
+  const r = put ? await api("/api/dynamodb", { method: "POST", json: { text: $("ddb-text").value } }) : await api("/api/dynamodb");
+  badge("dynamodb", r.ok, r.ok ? `${r.items.length} item` : "hata");
+  if (!r.ok) { $("ddb-list").innerHTML = `<pre class="out err">${esc(r.error)}</pre>`; return; }
+  if (put) $("ddb-text").value = "";
+  $("ddb-list").innerHTML = `<pre class="out">${esc(r.items.map((i) => JSON.stringify(i)).join("\n")) || "Tablo boş."}</pre>`;
+}
+
+// ---- Redis
+async function redis(incr) {
+  const r = await api("/api/redis", { method: incr ? "POST" : "GET", json: incr ? {} : undefined });
+  badge("redis", r.ok, r.ok ? `bağlı · ${r.latency_ms} ms` : "hata");
+  show("redis-out", r, (x) => `demo:counter = ${x.counter}\n\nInstance bazında:\n` + Object.entries(x.by_instance).map(([k, v]) => `  ${k}: ${v}`).join("\n"));
+}
+
+// ---- SQS / SNS
+async function sqsSend() { const r = await api("/api/sqs/send", { method: "POST", json: { body: $("sqs-body").value } }); badge("sqs", r.ok, r.ok ? "gönderildi" : "hata"); show("sqs-out", r, (x) => `Gönderildi → MessageId ${x.message_id}`); }
+async function sqsReceive() { const r = await api("/api/sqs/receive", { method: "POST", json: {} }); badge("sqs", r.ok, r.ok ? `kuyrukta ~${r.remaining}` : "hata"); show("sqs-out", r, (x) => x.messages.length ? `${x.messages.length} mesaj alındı ve silindi:\n` + x.messages.join("\n") : "Kuyruk boş."); }
+async function snsPublish() { const r = await api("/api/sns/publish", { method: "POST", json: { message: $("sns-msg").value } }); badge("sns", r.ok, r.ok ? "yayınlandı" : "hata"); show("sns-out", r, (x) => `Publish OK → MessageId ${x.message_id}`); }
+
+// ---- EFS / Secrets / CloudWatch
+async function efs(write) { const r = await api("/api/efs", { method: write ? "POST" : "GET", json: write ? {} : undefined }); badge("efs", r.ok, r.ok ? "mount OK" : "hata"); show("efs-out", r, (x) => `${x.path}\n\n${x.lines.join("\n") || "(boş)"}`); }
+async function secretsRead() { const r = await api("/api/secrets"); badge("secrets", r.ok, r.ok ? "okundu" : "hata"); show("secrets-out", r, (x) => JSON.stringify({ secret: x.secret, parameter: x.parameter }, null, 2)); }
+async function cwMetric() { const r = await api("/api/cloudwatch/metric", { method: "POST", json: { value: 1 } }); badge("cloudwatch", r.ok, r.ok ? "metrik gönderildi" : "hata"); show("cw-out", r, (x) => `${x.namespace}/${x.metric} += ${x.value}\nCloudWatch → Metrics → CoreDemo altında 1-2 dk içinde görünür.`); }
+let loadTimer;
+async function stressCpu() {
+  const r = await api("/api/stress", { method: "POST", json: { seconds: +$("stress-s").value } });
+  if (!show("cw-out", r)) return;
+  badge("cloudwatch", true, "CPU yükü aktif");
+  clearInterval(loadTimer);
+  const end = Date.now() + r.seconds * 1000;
+  loadTimer = setInterval(async () => {
+    const l = await api("/api/load");
+    const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+    $("cw-out").textContent = `${r.instance_id}: ${r.cores} çekirdekte yük, kalan ${left} sn\nload avg (1/5/15 dk): ${l.ok ? l.load.join(" / ") : "?"}\nNot: ALB arkasında load bilgisi farklı instance'tan gelebilir.`;
+    if (!left) { clearInterval(loadTimer); badge("cloudwatch", null, "bitti"); }
+  }, 3000);
+}
+
+// Butonları çalışırken kilitle
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button[onclick]"); if (!b || b.classList.contains("x")) return;
+  b.disabled = true; setTimeout(() => (b.disabled = false), 600);
+});
+
+whoami().then(() => {
+  if (CONF.rds) rdsStatus();
+  if (CONF.s3) s3List();
+  if (CONF.dynamodb) ddb(false);
+  if (CONF.redis) redis(false);
+  if (CONF.efs) efs(false);
+});
+</script>
+</body>
+</html>

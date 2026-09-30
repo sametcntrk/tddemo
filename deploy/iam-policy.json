@@ -1,0 +1,57 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3Demo",
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::BUCKET_ADI"
+    },
+    {
+      "Sid": "S3DemoObjects",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::BUCKET_ADI/demo/*"
+    },
+    {
+      "Sid": "DynamoDemo",
+      "Effect": "Allow",
+      "Action": ["dynamodb:PutItem", "dynamodb:Scan"],
+      "Resource": "arn:aws:dynamodb:REGION:HESAP_ID:table/core-demo"
+    },
+    {
+      "Sid": "SqsDemo",
+      "Effect": "Allow",
+      "Action": ["sqs:SendMessage", "sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"],
+      "Resource": "arn:aws:sqs:REGION:HESAP_ID:core-demo"
+    },
+    {
+      "Sid": "SnsDemo",
+      "Effect": "Allow",
+      "Action": ["sns:Publish"],
+      "Resource": "arn:aws:sns:REGION:HESAP_ID:core-demo"
+    },
+    {
+      "Sid": "SecretsDemo",
+      "Effect": "Allow",
+      "Action": ["secretsmanager:GetSecretValue"],
+      "Resource": [
+        "arn:aws:secretsmanager:REGION:HESAP_ID:secret:core-demo/*",
+        "arn:aws:secretsmanager:REGION:HESAP_ID:secret:rds!*"
+      ]
+    },
+    {
+      "Sid": "SsmParamDemo",
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameter"],
+      "Resource": "arn:aws:ssm:REGION:HESAP_ID:parameter/core-demo/*"
+    },
+    {
+      "Sid": "CloudWatchMetric",
+      "Effect": "Allow",
+      "Action": ["cloudwatch:PutMetricData"],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "cloudwatch:namespace": "CoreDemo" } }
+    }
+  ]
+}
