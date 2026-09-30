@@ -5,7 +5,7 @@
 set -euxo pipefail
 
 # ======================= AYARLAR =======================
-REPO_URL="https://github.com/sametcntrk/aws-core-demo.git"
+REPO_URL="https://github.com/sametcntrk/tddemo.git"
 BRANCH="main"
 # Private repo ise: https://<token>@github.com/... (token yerine public repo önerilir)
 
