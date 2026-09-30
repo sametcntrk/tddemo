@@ -10,6 +10,9 @@ EnvironmentFile=-/etc/core-demo.env
 # Port 80'i root olmadan dinleyebilmek için
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 ExecStart=/opt/core-demo/venv/bin/gunicorn --workers 2 --threads 4 --timeout 30 --bind 0.0.0.0:80 --access-logfile - app:app
+# CloudWatch Agent bu dosyayı /core-demo/app log grubuna gönderir
+StandardOutput=append:/var/log/core-demo/app.log
+StandardError=append:/var/log/core-demo/app.log
 Restart=always
 RestartSec=3
 

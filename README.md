@@ -20,7 +20,7 @@ Sadece RDS'i tanımlasan da çalışır; diğer kartlar "yapılandırılmadı" g
 ## Kurulum (en kolay yol: GitHub + User Data)
 
 1. **Bu klasörü GitHub'a public repo olarak push et** (secret içermez; tüm ayarlar instance'taki `/etc/core-demo.env` dosyasında).
-2. **IAM rolü**: EC2 için bir rol oluştur → `AmazonSSMManagedInstanceCore` (SSH'sız Session Manager erişimi) + kullanacağın servisler için `deploy/iam-policy.json` (placeholder'ları doldur, kullanmadığın statement'ları sil).
+2. **IAM rolü**: EC2 için bir rol oluştur → `AmazonSSMManagedInstanceCore` (SSM Agent / Session Manager ile SSH'sız erişim) + `CloudWatchAgentServerPolicy` (CloudWatch Agent metrik ve logları) + kullanacağın servisler için `deploy/iam-policy.json` (placeholder'ları doldur, kullanmadığın statement'ları sil).
    RDS secret'ı customer-managed KMS key ile şifreliyse o key için `kms:Decrypt` da ekle.
 3. **Security group'lar**
 
@@ -52,6 +52,16 @@ AWS servislerine NAT'sız erişim için Interface/Gateway VPC Endpoint'leri (S3,
    - "Bu instance'ı unhealthy yap" → ~20 sn sonra target group'ta unhealthy olur, ALB trafiği diğerine yollar. ASG ELB health check açıksa instance'ı değiştirir.
    - "CPU yükü" (300 sn) → CloudWatch alarmı → ASG yeni instance açar; ALB testinde yeni renk görünür.
 
+## SSM ve CloudWatch Agent
+
+User data iki agent'ı da kurup başlatır:
+- **SSM Agent** → EC2 konsolu *Connect → Session Manager* ile SSH anahtarı/22 portu olmadan bağlanırsın.
+- **CloudWatch Agent** (`deploy/cloudwatch-agent.json`)
+  - Metrikler (`CWAgent` namespace): `mem_used_percent`, `disk_used_percent`, CPU kırılımı — InstanceId ve AutoScalingGroupName boyutlarıyla
+  - Loglar: `/core-demo/app` (gunicorn erişim + hata logu) ve `/core-demo/cloud-init` (kurulum çıktısı), 7 gün saklama
+
+Private subnet'te NAT yoksa agent'lar için `ssm`, `ssmmessages`, `ec2messages`, `logs`, `monitoring` interface endpoint'leri gerekir.
+
 ## Yerel / manuel çalıştırma
 
 ```bash
@@ -66,7 +76,8 @@ python app.py   # http://localhost:8080
 ```bash
 sudo tail -100 /var/log/cloud-init-output.log   # user data çıktısı
 sudo systemctl status core-demo
-sudo journalctl -u core-demo -f
+sudo tail -f /var/log/core-demo/app.log            # uygulama logu (CloudWatch: /core-demo/app)
+sudo systemctl status amazon-ssm-agent amazon-cloudwatch-agent
 sudo vi /etc/core-demo.env && sudo systemctl restart core-demo
 cd /opt/core-demo && sudo -u ec2-user git pull && sudo systemctl restart core-demo   # kod güncelle
 ```

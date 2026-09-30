@@ -32,7 +32,11 @@ EFS_ID=""
 chmod 600 /etc/core-demo.env
 chown ec2-user /etc/core-demo.env
 
-dnf install -y git python3 python3-pip
+dnf install -y git python3 python3-pip amazon-ssm-agent amazon-cloudwatch-agent
+
+# SSM Agent (AL2023 AMI'de hazır gelir; burada sadece açık olduğundan emin oluyoruz)
+# IAM rolünde AmazonSSMManagedInstanceCore olmalı → Session Manager ile SSH'sız bağlantı
+systemctl enable --now amazon-ssm-agent
 
 if [ -n "$EFS_ID" ]; then
   dnf install -y amazon-efs-utils
@@ -50,9 +54,15 @@ python3 -m venv /opt/core-demo/venv
 /opt/core-demo/venv/bin/pip install -r /opt/core-demo/requirements.txt
 chown -R ec2-user:ec2-user /opt/core-demo
 
+mkdir -p /var/log/core-demo
 cp /opt/core-demo/deploy/core-demo.service /etc/systemd/system/core-demo.service
 systemctl daemon-reload
 systemctl enable --now core-demo
+
+# CloudWatch Agent — IAM rolünde CloudWatchAgentServerPolicy olmalı
+# Metrikler: CWAgent namespace (bellek, disk, CPU) | Loglar: /core-demo/app, /core-demo/cloud-init
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 -s -c file:/opt/core-demo/deploy/cloudwatch-agent.json
 
 # Hızlı doğrulama
 sleep 3
